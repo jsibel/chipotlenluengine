@@ -1,0 +1,679 @@
+// Jay Sibel - 11/4/19
+// Global helper functions and NLU Engine below
+
+function SBV1(name){botContext.setBotVariable(name,name,true,false);}
+function SBV2(name,valu){botContext.setBotVariable(name,valu,true,false);}
+function SBV3(name,valu){botContext.setBotVariable(name,valu,false,true);}
+function SBV4(name,valu){SBV2(name,JSON.stringify(valu));}
+function GBV1(valu){return botContext.getBotVariable(valu);}
+function GBV2(valu){temp=botContext.getBotVariable(valu);return JSON.parse(temp);}
+function GBV3(valu){return botContext.getWebViewVariable(valu);}
+function GRCT(){return botContext.getResponderResultsCount();}
+function STNM(valu){botContext.logCustomEvent("",valu,"");botContext.setTriggerNextMessage(valu);}
+function REGX(valu){return new RegExp(botContext.getBotVariable(valu));}
+function TEST(valu,resp){if(valu.test(resp.toLowerCase())){return true;}else{return false;}}
+function PDBG(name,valu){botContext.printDebugMessage(name+": "+valu);}
+function SDLY(valu){botContext.setMessageDelay(valu);}
+function GRSP(){return botContext.getCurrentUserMessage().toLowerCase();}
+function GINT(){return botContext.getCurrentUserMessage();}
+function CLOS(){SDLY(5000);botContext.sendMessage("LP_CLOSEDIALOG");}
+function SMSG(valu){botContext.sendMessage(valu);}
+function LOGS(valu){botContext.logCustomEvent("",valu,"");}
+function LOGM(valu){botContext.logCustomEvent("",valu,"");SBV2("lmsg",valu);}
+function LOGE(){
+  botContext.logEscalationEvent("Escalation","LivePerson");
+  if(!GBV1("flow")){SBV2("flow","Other Flow");}
+  if(!GBV1("lmsg")){SBV2("lmsg","Other Message");}
+  botContext.logCustomEvent("","Escalate: "+GBV1("flow"),"");
+  botContext.logCustomEvent("","Escalate: "+GBV1("lmsg"),"");
+}
+function INIT(){
+  CCNL();
+  SBV2("acid",botContext.getLPAccountId());
+  SBV2("ssid",botContext.getLPEngagementAttribute("sharkSessionId"));
+  SBV2("svid",botContext.getLPEngagementAttribute("sharkVisitorId"));
+  SBV2("btok",botContext.getLPEngagementAttribute("BearerToken"));
+  SBV2("chsk",botContext.getLPEngagementAttribute('chatSessionKey'));
+  SBV2("asid",botContext.getLPEngagementAttribute('agentSessionId'));
+  SBV2("egid",botContext.getLPEngagementAttribute('engagementId')); 
+  SBV2("ini","true");SBV2("err",0);SBV2("msg","");
+  SBV2("yes","yes|yep|yeah");SBV2("nop","no|nope|nah");
+  //SBV2("st01","hello|hey");
+  //SBV2("st02","bye|goodbye");
+  //SBV2("st03","who are you?|what are you?|what is this?");
+  //SBV2("st04","how are you?");
+  //SBV2("st05","i hate you|you suck|you're stupid");
+  //SBV2("st06","shit|ass|fuck");
+  SBV2("st06","http://|https://|www.|.com");
+  //SBV2("st08","thanks|thank you");
+  SBV2("st09","agent|help|refund");
+  SBV2("__recordUnMatchedPatternPhrases__",true);
+  SBV2("akey","e0967eade009402a9e1abc302da594d3");
+  SBV2("reid","73");SBV2("scar","payment");SBV2("fbfn","you");
+  CDAT();GFBN();SINT();
+}
+function __initConversation(){INIT();}
+function CINI(){if(!GBV1("ini")){SBV2("ini","true");INIT();}}
+function CCNL(){
+  var chnl=botContext.getChannel();PDBG("CHANNEL",chnl);
+  if(chnl=="lp_fb"||chnl=="lp_sms"||chnl=="sms"||chnl=="CustomContext"){SBV2("lnbr","\n");}else{SBV2("lnbr","<br>");}
+}
+function WBCK(){
+  var d=new Date(); 
+  if(GBV1("prev")!==null){SBV2("wmsg","back ");}else{SBV2("wmsg","");SBV3("prev",d);}
+}
+function ACHK(){if(GBV1("bear")){STNM("UNLINK_ACC_logout");}}
+function LCHK(){if(!GBV1("bear")){STNM("LINK_ACC_login");}}
+function CDAT(){
+  SBV2("usid",botContext.getUserPlatformId());PDBG("***USER ID",GBV1("usid"));
+  SBV2("coid",botContext.getConversationId());PDBG("***CONV ID",GBV1("coid"));
+  //SBV2("bear","Bearer eyJhbGciOiJBMTI4S1ciLCJlbmMiOiJBMTI4Q0JDLUhTMjU2IiwidHlwIjoiSldUIn0.ntA84EaFs1widt8K9ks86JztH32J-Vra0KbN3Da8HQh2gEe6QKdLCw.GgdE3gn1FJMpXRJ7SglVDA.jEfRz5sFuUjq-e3_B06Z6cv6w7VS9uEcNZ_VGMzPt3f37DzEfuc5xpg2k2F1NFVZ8cfaxoE6_8dU3p6345jqcFMlllQ4pbRalaYIp35cqOeTA-uBJ3CxycISM4QCtjC8VSZmCt2MbJGgilVng3ywPLoE7Wq3wpDKG-O7RBgV8ekUWZ7DmUxddMT89o9rMyrbU5T6VEgwigZ9uw-XUIgkewXjTwbEtvP59f24Hq82lxDxMCpAFtLf3_O7P0v3ef6qhwXyXEKQMk7H5wiaKXV5zt4d7y_NFBftinD5VfisZZVbbImBL1X5lIpQZ1E4QfVkYtUf-fOTCkHgTwF2y_8LmthwDwOdvsUUPOohKISsMECWDRWL1EcTh41SsP3h2yUvZn7ixr9gDLVckyn_XJIky8-8edAHU0M6ZewSehvPEh27nyf30--0G8ls-CkT11rBau7QLqCoZSQ_Kwbcl03G9UwacNxVbdV5muUhJYfCbCYrtxzr6iUiMD6carpqKZotvmHUSI9ht7bD8RK2uyjIuA.5bZaUQF_3Doj9e0DxpPPbQ");
+}
+function CDLY(){if(GBV1("dlay")){SBV2("dlay",null);SDLY(2500);}}
+function DDLY(){SBV2("dlay",true);}
+function LAST(){
+  SBV2("dlay",true);if(GBV1("lmsg")!==null){STNM(GBV1("lmsg"));}else{STNM("WELCOME");}
+}
+function GFBN(){
+  var pers=botContext.getLPUserPersonalInfo(),fnam,lnam;
+  if(pers){SBV2("fbfn",pers.firstname);SBV2("fbln",pers.lastname);PDBG("FB NAME",fnam+" "+lnam);}
+  else{PDBG("FB NAME","BLANK");}
+}
+function SINT(){
+  SBV2("nluURL","https://nluservice.botcentralapi.com"); // LE US: https://va.bc-nlu.liveperson.net
+  SBV2("orgIDE","5a2c485e-82e8-42f0-b899-6c771f3ca858");
+  SBV2("apiKEY","898b908cd25f343be313c5cebdd9c9f7a073c6a2");
+  SBV2("domIDE","190e3a1a-ef2c-436e-b3c0-e3827d83a572");
+  SBV2("metIDE","705cde4e-004c-4b68-aca1-c41097ceb954");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// START OF NLU ENGINE - Written by JAY SIBEL 11/8/19
+// NLU ENGINE: Triggered from the Fallback by CNLU();
+// Purpose: Checks intent for items from Chipotle's menu and validates.
+// If the intent matches a valid menu item for ordering the new order flow will begin.
+// Otherwise if an invalid menu item shall display a validation error.
+// All items from Chipotle menu is listed as individual entities.
+// This code checks all matches for entities and adds them to object arrays.
+//////////////////////////////////////////////////////////////////////////////////////////
+
+// Create variables, objects, and arrays for all menu items
+// There are 6 main categories for menu items:
+// 1) MEALS - 8
+// 2) FILLINGS - 19
+// 3) TOPPINGS - 53
+// 4) DRINKS - 27
+// 5) SIDES - 16
+// 6) TORTILLAS - 4
+
+var MEALMAP={},FILLMAP={},TOPPMAP={},DRNKMAP={},SIDEMAP={},TORTMAP={};
+var MEALMTC=[],FILLMTC=[],TOPPMTC=[],DRNKMTC=[],SIDEMTC=[],TORTMTC=[];
+var MEALPHR=[],FILLPHR=[],TOPPPHR=[],DRNKPHR=[],SIDEPHR=[],TORTPHR=[];
+var ML00=[],ML01=[],ML02=[],ML03=[],ML04=[],ML05=[],ML06=[],ML07=[];
+var FL00=[],FL01=[],FL02=[],FL03=[],FL04=[],FL05=[],FL06=[],FL07=[],FL08=[],FL09=[],FL10=[],FL11=[],FL12=[],FL13=[],FL14=[],FL15=[],FL16=[],FL17=[],FL18=[];
+var TP00=[],TP01=[],TP02=[],TP03=[],TP04=[],TP05=[],TP06=[],TP07=[],TP08=[],TP09=[],TP10=[],TP11=[],TP12=[],TP13=[],TP14=[],TP15=[],TP16=[],TP17=[],TP18=[],TP19=[],TP20=[],TP21=[],TP22=[],TP23=[],TP24=[],TP25=[],TP26=[],TP27=[],TP28=[],TP29=[],TP30=[],TP31=[],TP32=[],TP33=[],TP34=[],TP35=[],TP36=[],TP37=[],TP38=[],TP39=[],TP40=[],TP41=[],TP42=[],TP43=[],TP44=[],TP45=[],TP46=[],TP47=[],TP48=[],TP49=[],TP50=[],TP51=[],TP52=[];
+var DR00=[],DR01=[],DR02=[],DR03=[],DR04=[],DR05=[],DR06=[],DR07=[],DR08=[],DR09=[],DR10=[],DR11=[],DR12=[],DR13=[],DR14=[],DR15=[],DR16=[],DR17=[],DR18=[],DR19=[],DR20=[],DR21=[],DR22=[],DR23=[],DR24=[],DR25=[],DR26=[];
+var SD00=[],SD01=[],SD02=[],SD03=[],SD04=[],SD05=[],SD06=[],SD07=[],SD08=[],SD09=[],SD10=[],SD11=[],SD12=[],SD13=[],SD14=[],SD15=[];
+var TO00=[],TO01=[],TO02=[],TO03=[];
+
+// Define proper names for entity matching as variables
+var ml00="Burrito",ml01="Burrito Bowl",ml02="Salad",ml03="1 Taco",ml04="3 Tacos",ml05="Quesadilla",ml06="Kids Build Your Own",ml07="Kids Quesadilla";
+var fl00="Barbacoa",fl01="Carnitas",fl02="Chicken",fl03="Sofritas",fl04="Steak",fl05="Carne Asada",fl06="Veggie",fl07="Half Barbacoa",fl08="Extra Barbacoa",fl09="Half Carnitas",fl10="Extra Carnitas",fl11="Half Chicken",fl12="Extra Chicken",fl13="Half Sofritas",fl14="Extra Sofritas",fl15="Half Steak",fl16="Extra Steak",fl17="Half Carne Asada",fl18="Extra Carne Asada";
+var tp00="Guacamole",tp01="Sour Cream",tp02="Light Sour Cream",tp03="Extra Sour Cream",tp04="Side Sour Cream",tp05="Queso",tp06="Queso Blanco",tp07="Chipotle-Honey Vinaigrette",tp08="Fresh Tomato Salsa",tp09="Light Fresh Tomato Salsa",tp10="Extra Fresh Tomato Salsa",tp11="Side Fresh Tomato Salsa",tp12="Roasted Chili-Corn Salsa",tp13="Light Roasted Chili-Corn Salsa",tp14="Extra Roasted Chili-Corn Salsa",tp15="Side Roasted Chili-Corn Salsa",tp16="Tomatillo-Green Chili Salsa",tp17="Light Tomatillo-Green Chili Salsa",tp18="Extra Tomatillo-Green Chili Salsa",tp19="Side Tomatillo-Green Chili Salsa",tp20="Tomatillo-Red Chili Salsa",tp21="Light Tomatillo-Red Chili Salsa",tp22="Extra Tomatillo-Red Chili Salsa",tp23="Side Tomatillo-Red Chili Salsa",tp24="Cheese",tp25="Light Cheese",tp26="Extra Cheese",tp27="Fajita Veggies",tp28="Light Fajita Veggies",tp29="Extra Fajita Veggies",tp30="Romaine Lettuce",tp31="Light Romaine Lettuce",tp32="Extra Romaine Lettuce",tp33="White Rice",tp34="Half White Rice",tp35="Light White Rice",tp36="Extra White Rice",tp37="Side White Rice",tp38="Brown Rice",tp39="Half Brown Rice",tp40="Light Brown Rice",tp41="Extra Brown Rice",tp42="Side Brown Rice",tp43="Black Beans",tp44="Half Black Beans",tp45="Light Black Beans",tp46="Extra Black Beans",tp47="Side Black Beans",tp48="Pinto Beans",tp49="Half Pinto Beans",tp50="Light Pinto Beans",tp51="Extra Pinto Beans",tp52="Side Pinto Beans";
+var dr00="Bottled Water",dr01="Smart Water",dr02="San Pellegrino Sparkling Water",dr03="Peach Orange Juice",dr04="Pineapple Orange Banana Juice",dr05="San Pellegrino Blood Orange",dr06="Grapefruit Izze",dr07="Spindrift Grapefruit",dr08="22 fl oz Soda/Iced Tea",dr09="32 fl oz Soda/Iced Tea",dr10="Lipton Pure Leaf Tea - Sweet Tea",dr11="Moonshine Sweet Tea Mint Honey",dr12="Moonshine Sweet Tea Original",dr13="Honest Tea Honey Green",dr14="Lipton Pure Leaf Tea - Unsweetened",dr15="Honest Half Tea Half Lemonade",dr16="Hubert's Strawberry Lemonade",dr17="Starbucks® Cold Brew - Black Unsweetened",dr18="Mexican Coca-Cola",dr19="Pressed Apple Juice",dr20="Pomegranate Cherry Juice",dr21="Blackberry Izze",dr22="Clementine Izze",dr23="Organic Milk",dr24="Organic Chocolate Milk",dr25="Organic Apple Juice",dr26="16 fl oz Soda/Iced Tea";
+var sd00="Chips",sd01="Chips & Guacamole",sd02="Large Chips & Large Guacamole",sd03="Side of Guacamole",sd04="Chips & Queso",sd05="Chips & Queso Blanco",sd06="Large Chips & Large Queso",sd07="Large Chips & Large Queso Blanco",sd08="Side of Queso",sd09="Side of Queso Blanco",sd10="Chips & Fresh Tomato Salsa",sd11="Chips & Roasted Chili-Corn Salsa",sd12="Chips & Tomatillo-Green Chili Salsa",sd13="Chips & Tomatillo-Red Chili Salsa",sd14="Kid's Chips",sd15="Kid's Fruit";
+var to00="Corn Tortilla",to01="Flour Tortilla",to02="Double Wrap with Tortilla",to03="Tortilla on the Side";
+// Global variables for user response, and validation counters
+var ntnt=GRSP(),newi=ntnt,vhfi=0,vcus=0,vtor=0,vkfi=0,vkit=0,xkby=0,xkqu=0,xkdr=0,xksi=0,vkdr=0,vksi=0,xtor=0,xtbu=0,xtbs=0;
+// Main driver function to check NLU.  This builds the lists, checks meals, fillings, toppings, drinks,
+// sides, tortillas, checks overlaps, validates and prints NLU
+function CNLU(){BLST();MEAL();FILL();TOPP();DRNK();SIDE();TORT();COVL();PNLU();}
+// Build lists to associate context to menu items, i.e. items number or price or url (as needed)
+// API calls for new order may not need to associate context other than menu ID
+// This JSON map does not have to be used to associate context data, but can as needed
+function BLST(){
+  var flst=[];
+  var list1=[
+  {id:1,name:'Burrito',price:'6.95',url:'https://www.chipotle.com/content/dam/chipotle/global-site-design/en/menu/meal-types/burrito/burrito.png'},
+  {id:2,name:'Burrito Bowl',price:'6.95',url:'https://www.chipotle.com/content/dam/chipotle/global-site-design/en/menu/meal-types/burrito-bowl/bowl.png'},
+  {id:3,name:'Salad',price:'6.95',url:'https://www.chipotle.com/content/dam/chipotle/global-site-design/en/menu/meal-types/salad/salad.png'},
+  {id:4,name:'1 Taco',price:'2.55',url:'https://www.chipotle.com/content/dam/chipotle/global-site-design/en/menu/meal-types/tacos/primary/tacos@3x.png'},
+  {id:5,name:'3 Tacos',price:'6.95',url:'https://www.chipotle.com/content/dam/chipotle/global-site-design/en/menu/meal-types/tacos/primary/tacos@3x.png'},
+  {id:6,name:'Quesadilla',price:'6.95',url:'https://www.chipotle.com/content/dam/chipotle/global-site-design/en/menu/meal-types/tacos/primary/tacos@3x.png'},
+  {id:7,name:'Kids Build Your Own',price:'4.95',url:'https://www.chipotle.com/content/dam/chipotle/global-site-design/en/menu/meal-types/kids-menu/primary/kidsmeal@3x.png'},
+  {id:8,name:'Kids Quesadilla',price:'3.95',url:'https://www.chipotle.com/content/dam/chipotle/global-site-design/en/menu/meal-types/kids-menu/primary/kidsmeal@3x.png'}];
+  var list2=[
+  {id:1,name:'Barbacoa',price:'8.00',price1:'2.90',price2:'5.80',url:'TBD'},
+  {id:2,name:'Carnitas',price:'7.50',price1:'2.70',price2:'5.40',url:'TBD'},
+  {id:3,name:'Chicken',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:4,name:'Sofritas',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:5,name:'Steak',price:'8.00',price1:'2.90',price2:'5.80',url:'TBD'},
+  {id:6,name:'Carne Asada',price:'8.00',price1:'2.90',price2:'5.80',url:'TBD'},  
+  {id:7,name:'Veggie',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:8,name:'Half Barbacoa',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:9,name:'Extra Barbacoa',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:10,name:'Half Carnitas',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:11,name:'Extra Carnitas',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:12,name:'Half Chicken',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:13,name:'Extra Chicken',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:14,name:'Half Sofritas',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:15,name:'Extra Sofritas',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:16,name:'Half Steak',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:17,name:'Extra Steak',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:18,name:'Half Carne Asada',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'},
+  {id:19,name:'Extra Carne Asada',price:'6.95',price1:'2.55',price2:'5.10',url:'TBD'}];
+  var list3=[
+  {id:1,name:'Guacamole',price:'2.05',url:'TBD'},
+  {id:2,name:'Sour Cream',price:'0.00',url:'TBD'},
+  {id:3,name:'Light Sour Cream',price:'0.00',url:'TBD'},
+  {id:4,name:'Extra Sour Cream',price:'0.00',url:'TBD'},
+  {id:5,name:'Side Sour Cream',price:'0.00',url:'TBD'},
+  {id:6,name:'Queso',price:'1.25',url:'TBD'}, 
+  {id:7,name:'Queso Blanco',price:'1.25',url:'TBD'},
+  {id:8,name:'Chipotle-Honey Vinaigrette',price:'0.00',url:'TBD'},
+  {id:9,name:'Fresh Tomato Salsa',price:'0.00',url:'TBD'},
+  {id:10,name:'Light Fresh Tomato Salsa',price:'0.00',url:'TBD'},
+  {id:11,name:'Extra Fresh Tomato Salsa',price:'0.00',url:'TBD'},
+  {id:12,name:'Side Fresh Tomato Salsa',price:'0.00',url:'TBD'},
+  {id:13,name:'Roasted Chili-Corn Salsa',price:'0.00',url:'TBD'},
+  {id:14,name:'Light Roasted Chili-Corn Salsa',price:'0.00',url:'TBD'},
+  {id:15,name:'Extra Roasted Chili-Corn Salsa',price:'0.00',url:'TBD'},
+  {id:16,name:'Side Roasted Chili-Corn Salsa',price:'0.00',url:'TBD'},
+  {id:17,name:'Tomatillo-Green Chili Salsa',price:'0.00',url:'TBD'},
+  {id:18,name:'Light Tomatillo-Green Chili Salsa',price:'0.00',url:'TBD'},
+  {id:19,name:'Extra Tomatillo-Green Chili Salsa',price:'0.00',url:'TBD'},
+  {id:20,name:'Side Tomatillo-Green Chili Salsa',price:'0.00',url:'TBD'},
+  {id:21,name:'Tomatillo-Red Chili Salsa',price:'0.00',url:'TBD'},
+  {id:22,name:'Light Tomatillo-Red Chili Salsa',price:'0.00',url:'TBD'},
+  {id:23,name:'Extra Tomatillo-Red Chili Salsa',price:'0.00',url:'TBD'},
+  {id:24,name:'Side Tomatillo-Red Chili Salsa',price:'0.00',url:'TBD'},
+  {id:25,name:'Cheese',price:'0.00',url:'TBD'},
+  {id:26,name:'Light Cheese',price:'0.00',url:'TBD'},
+  {id:27,name:'Extra Cheese',price:'0.00',url:'TBD'},
+  {id:28,name:'Fajita Veggies',price:'0.00',url:'TBD'},
+  {id:29,name:'Light Fajita Veggies',price:'0.00',url:'TBD'},
+  {id:30,name:'Extra Fajita Veggies',price:'0.00',url:'TBD'},
+  {id:31,name:'Romaine Lettuce',price:'0.00',url:'TBD'},
+  {id:32,name:'Light Romaine Lettuce',price:'0.00',url:'TBD'},
+  {id:33,name:'Extra Romaine Lettuce',price:'0.00',url:'TBD'},
+  {id:34,name:'White Rice',price:'0.00',url:'TBD'},
+  {id:35,name:'Half White Rice',price:'0.00',url:'TBD'},
+  {id:36,name:'Light White Rice',price:'0.00',url:'TBD'},
+  {id:37,name:'Extra White Rice',price:'0.00',url:'TBD'},
+  {id:38,name:'Side White Rice',price:'0.00',url:'TBD'},
+  {id:39,name:'Brown Rice',price:'0.00',url:'TBD'},
+  {id:40,name:'Half Brown Rice',price:'0.00',url:'TBD'},
+  {id:41,name:'Light Brown Rice',price:'0.00',url:'TBD'},
+  {id:42,name:'Extra Brown Rice',price:'0.00',url:'TBD'},
+  {id:43,name:'Side Brown Rice',price:'0.00',url:'TBD'},
+  {id:44,name:'Black Beans',price:'0.00',url:'TBD'},
+  {id:45,name:'Half Black Beans',price:'0.00',url:'TBD'},
+  {id:46,name:'Light Black Beans',price:'0.00',url:'TBD'},
+  {id:47,name:'Extra Black Beans',price:'0.00',url:'TBD'},
+  {id:48,name:'Side Black Beans',price:'0.00',url:'TBD'},
+  {id:49,name:'Pinto Beans',price:'0.00',url:'TBD'},
+  {id:50,name:'Half Pinto Beans',price:'0.00',url:'TBD'},
+  {id:51,name:'Light Pinto Beans',price:'0.00',url:'TBD'},
+  {id:52,name:'Extra Pinto Beans',price:'0.00',url:'TBD'},
+  {id:53,name:'Side Pinto Beans',price:'0.00',url:'TBD'}];
+  var list4=[
+  {id:1,name:'Bottled Water',price:'1.95',url:'TBD'},
+  {id:2,name:'Smart Water',price:'2.20',url:'TBD'},
+  {id:3,name:'San Pellegrino Sparkling Water',price:'2.80',url:'TBD'},
+  {id:4,name:'Peach Orange Juice',price:'2.45',url:'TBD'},
+  {id:5,name:'Pineapple Orange Banana Juice',price:'2.80',url:'TBD'},
+  {id:6,name:'San Pellegrino Blood Orange',price:'2.80',url:'TBD'},
+  {id:7,name:'Grapefruit Izze',price:'2.80',url:'TBD'},
+  {id:8,name:'Spindrift Grapefruit',price:'2.80',url:'TBD'},
+  {id:9,name:'22 fl oz Soda/Iced Tea',price:'2.80',url:'TBD'},
+  {id:10,name:'32 fl oz Soda/Iced Tea',price:'2.80',url:'TBD'},
+  {id:11,name:'Lipton Pure Leaf Tea - Sweet Tea',price:'2.80',url:'TBD'},
+  {id:12,name:'Moonshine Sweet Tea Mint Honey',price:'1.95',url:'TBD'},
+  {id:13,name:'Moonshine Sweet Tea Original',price:'2.20',url:'TBD'},
+  {id:14,name:'Honest Tea Honey Green',price:'2.80',url:'TBD'},
+  {id:15,name:'Lipton Pure Leaf Tea - Unsweetened',price:'2.65',url:'TBD'},
+  {id:16,name:'Honest Half Tea Half Lemonade',price:'2.45',url:'TBD'},
+  {id:17,name:'Hubert\'s Strawberry Lemonade',price:'2.80',url:'TBD'},
+  {id:18,name:'Starbucks® Cold Brew - Black Unsweetened',price:'2.80',url:'TBD'},
+  {id:19,name:'Mexican Coca-Cola',price:'2.80',url:'TBD'},
+  {id:20,name:'Pressed Apple Juice',price:'2.80',url:'TBD'},
+  {id:21,name:'Pomegranate Cherry Juice',price:'2.80',url:'TBD'},
+  {id:22,name:'Blackberry Izze',price:'2.80',url:'TBD'},
+  {id:23,name:'Clementine Izze',price:'2.80',url:'TBD'},
+  {id:24,name:'Organic Milk',price:'2.80',url:'TBD'},
+  {id:25,name:'Organic Chocolate Milk',price:'2.80',url:'TBD'},
+  {id:26,name:'Organic Apple Juice',price:'2.80',url:'TBD'},
+  {id:27,name:'16 fl oz Soda/Iced Tea',price:'2.80',url:'TBD'}];
+  var list5=[
+  {id:1,name:'Chips',price:'1.40',url:'TBD'},
+  {id:2,name:'Chips & Guacamole',price:'3.45',url:'TBD'},
+  {id:3,name:'Large Chips & Large Guacamole',price:'5.75',url:'TBD'},
+  {id:4,name:'Side of Guacamole',price:'2.05',url:'TBD'},
+  {id:5,name:'Chips & Queso',price:'3.45',url:'TBD'},
+  {id:6,name:'Chips & Queso Blanco',price:'3.45',url:'TBD'},
+  {id:7,name:'Large Chips & Large Queso',price:'5.25',url:'TBD'},
+  {id:8,name:'Large Chips & Large Queso Blanco',price:'5.25',url:'TBD'},
+  {id:9,name:'Side of Queso',price:'2.05',url:'TBD'},
+  {id:10,name:'Side of Queso Blanco',price:'2.05',url:'TBD'},
+  {id:11,name:'Chips & Fresh Tomato Salsa',price:'2.05',url:'TBD'},
+  {id:12,name:'Chips & Roasted Chili-Corn Salsa',price:'2.05',url:'TBD'},
+  {id:13,name:'Chips & Tomatillo-Green Chili Salsa',price:'2.05',url:'TBD'},
+  {id:14,name:'Chips & Tomatillo-Red Chili Salsa',price:'2.05',url:'TBD'},
+  {id:15,name:'Kid\'s Chips',price:'2.05',url:'TBD'},
+  {id:16,name:'Kid\'s Fruit',price:'2.05',url:'TBD'}];
+  var list6=[
+  {id:1,name:'Corn Tortilla',price1:'0.00',url:'TBD'},
+  {id:2,name:'Flour Tortilla',price1:'0.00',url:'TBD'},
+  {id:3,name:'Double Wrap with Tortilla',price1:'0.00',url:'TBD'},
+  {id:4,name:'Tortilla on the Side',price1:'0.00',url:'TBD'}];
+  flst.push(list1,list2,list3,list4,list5,list6);
+  for(var i=1;i<7;i++){SBV4("list"+i,flst[i-1]);}
+  SBV2("a","^a$");SBV2("c","^c$");SBV2("y","^y$");SBV2("n","^n$");
+  SBV2("orderCounter",0);SBV2("add","^add$");SBV2("cancel","^cancel$");
+  SBV2("cart","^cart");SBV2("DL","tag::breakWithDelay=250");
+  SBV2("yes","^yes|yeah|yep|ya$");SBV2("no","^no|nope|na|nah$");
+  // Get the NLP reponse for the intent
+  var nlp=botContext.getNlpResponse();
+  // NLU may crash so check if null otherwise success
+  if(nlp==null){SMSG("Sorry, I did't quite understand, please rephrase and try again.");}else{PDBG("NLP RESPONSE",nlp);}
+  // Set main objects for 6 main menu items
+  // Each object contains the list of entities matched for respected category
+  var LST01=[],list01=[],MEAL;var LST02=[],list02=[],FILL;var LST03=[],list03=[],TOPP;
+  var LST04=[],list04=[],DRNK;var LST05=[],list05=[],SIDE;var LST06=[],list06=[],TORT;
+  MEAL=GNSL(list01,"list1",LST01);for(i=0;i<MEAL.length;i++){MEALMAP[MEAL[i].name]=MEAL[i];}
+  FILL=GNSL(list02,"list2",LST02);for(i=0;i<FILL.length;i++){FILLMAP[FILL[i].name]=FILL[i];}
+  TOPP=GNSL(list03,"list3",LST03);for(i=0;i<TOPP.length;i++){TOPPMAP[TOPP[i].name]=TOPP[i];}
+  DRNK=GNSL(list04,"list4",LST04);for(i=0;i<DRNK.length;i++){DRNKMAP[DRNK[i].name]=DRNK[i];}
+  SIDE=GNSL(list05,"list5",LST05);for(i=0;i<SIDE.length;i++){SIDEMAP[SIDE[i].name]=SIDE[i];}
+  TORT=GNSL(list06,"list6",LST06);for(i=0;i<TORT.length;i++){TORTMAP[TORT[i].name]=TORT[i];}
+}
+// NLU Helper functions below for NLU engine.
+// These functions checks all entities and if matches found fills the match object array
+function MEAL(){var getm="",chkm="";for(i=1;i<9;i++){getm=GNTY('meals'+i);chkm=CNTY(getm,"MEAL");if(chkm!=""){MEALMTC[MEALMTC.length]=chkm[0];}}}
+function FILL(){var getf="",chkf="";for(i=1;i<20;i++){getf=GNTY('fillings'+i);chkf=CNTY(getf,"FILL");if(chkf!=""){FILLMTC[FILLMTC.length]=chkf[0];}}}
+function TOPP(){var gett="",chkt="";for(i=1;i<54;i++){gett=GNTY('toppings'+i);chkt=CNTY(gett,"TOPP");if(chkt!=""){TOPPMTC[TOPPMTC.length]=chkt[0];}}}
+function DRNK(){var getd="",chkd="";for(i=1;i<28;i++){getd=GNTY('drinks'+i);chkd=CNTY(getd,"DRNK");if(chkd!=""){DRNKMTC[DRNKMTC.length]=chkd[0];}}}
+function SIDE(){var gets="",chks="";for(i=1;i<17;i++){gets=GNTY('sides'+i);chks=CNTY(gets,"SIDE");if(chks!=""){SIDEMTC[SIDEMTC.length]=chks[0];}}}
+function TORT(){var gett="",chkt="";for(i=1;i<5;i++){gett=GNTY('tortilla'+i);chkt=CNTY(gett,"TORT");if(chkt!=""){TORTMTC[TORTMTC.length]=chkt[0];}}}
+// Get the currect JSON list for that category and return it
+function GNSL(name,valu,list){name=GBV1(valu);list=JSON.parse(name);return list;}
+// Get the current entity based on the name
+function GNTY(name){return botContext.getNamedEntities(name);}
+// Check entity main function
+// This function sets the proper name for the entity items matched and puts in respected arrays and returns the complete list.
+function CNTY(name,type){
+  var tMTC=[],tPHR=[],eVAL="",ePHR="";
+  if(name!==null &&name.length>0){
+	for(var i=0;i<name.length;i++){
+      eVAL=name[i].getDataValue();ePHR=name[i].getPhrase();
+      if(eVAL){tMTC[tMTC.length]=eVAL;}
+      if(type=="MEAL"){//8 MEALS
+        MEALPHR[MEALPHR.length]=ePHR;
+        if(eVAL==ml00){ML00[ML00.length]=ePHR;}if(eVAL==ml01){ML01[ML01.length]=ePHR;}if(eVAL==ml02){ML02[ML02.length]=ePHR;}
+        if(eVAL==ml03){ML03[ML03.length]=ePHR;}if(eVAL==ml04){ML04[ML04.length]=ePHR;}if(eVAL==ml05){ML05[ML05.length]=ePHR;}
+        if(eVAL==ml06){ML06[ML06.length]=ePHR;}if(eVAL==ml07){ML07[ML07.length]=ePHR;}
+      }
+      else if(type=="FILL"){//19 FILLINGS
+        FILLPHR[FILLPHR.length]=ePHR;
+        if(eVAL==fl00){FL00[FL00.length]=ePHR;}if(eVAL==fl01){FL01[FL01.length]=ePHR;}if(eVAL==fl02){FL02[FL02.length]=ePHR;}
+        if(eVAL==fl03){FL03[FL03.length]=ePHR;}if(eVAL==fl04){FL04[FL04.length]=ePHR;}if(eVAL==fl05){FL05[FL05.length]=ePHR;}
+        if(eVAL==fl06){FL06[FL06.length]=ePHR;}if(eVAL==fl07){FL07[FL07.length]=ePHR;}if(eVAL==fl08){FL08[FL08.length]=ePHR;}
+        if(eVAL==fl09){FL09[FL09.length]=ePHR;}if(eVAL==fl10){FL10[FL10.length]=ePHR;}if(eVAL==fl11){FL11[FL11.length]=ePHR;}
+        if(eVAL==fl12){FL12[FL12.length]=ePHR;}if(eVAL==fl13){FL13[FL13.length]=ePHR;}if(eVAL==fl14){FL14[FL14.length]=ePHR;}
+        if(eVAL==fl15){FL15[FL15.length]=ePHR;}if(eVAL==fl16){FL16[FL16.length]=ePHR;}if(eVAL==fl17){FL17[FL17.length]=ePHR;}
+        if(eVAL==fl18){FL18[FL18.length]=ePHR;}
+      }
+      else if(type=="TOPP"){//53 TOPPINGS
+        TOPPPHR[TOPPPHR.length]=ePHR;
+        if(eVAL==tp00){TP00[TP00.length]=ePHR;}if(eVAL==tp01){TP01[TP01.length]=ePHR;}if(eVAL==tp02){TP02[TP02.length]=ePHR;}
+        if(eVAL==tp03){TP03[TP03.length]=ePHR;}if(eVAL==tp04){TP04[TP04.length]=ePHR;}if(eVAL==tp05){TP05[TP05.length]=ePHR;}
+        if(eVAL==tp06){TP06[TP06.length]=ePHR;}if(eVAL==tp07){TP07[TP07.length]=ePHR;}if(eVAL==tp08){TP08[TP08.length]=ePHR;}
+        if(eVAL==tp09){TP09[TP09.length]=ePHR;}if(eVAL==tp10){TP10[TP10.length]=ePHR;}if(eVAL==tp11){TP11[TP11.length]=ePHR;}
+        if(eVAL==tp12){TP12[TP12.length]=ePHR;}if(eVAL==tp13){TP13[TP13.length]=ePHR;}if(eVAL==tp14){TP14[TP14.length]=ePHR;}
+        if(eVAL==tp15){TP15[TP15.length]=ePHR;}if(eVAL==tp16){TP16[TP16.length]=ePHR;}if(eVAL==tp17){TP17[TP17.length]=ePHR;}
+        if(eVAL==tp18){TP18[TP18.length]=ePHR;}if(eVAL==tp19){TP19[TP19.length]=ePHR;}if(eVAL==tp20){TP20[TP20.length]=ePHR;}
+        if(eVAL==tp21){TP21[TP21.length]=ePHR;}if(eVAL==tp22){TP22[TP22.length]=ePHR;}if(eVAL==tp23){TP23[TP23.length]=ePHR;}
+        if(eVAL==tp24){TP24[TP24.length]=ePHR;}if(eVAL==tp25){TP25[TP25.length]=ePHR;}if(eVAL==tp26){TP26[TP26.length]=ePHR;}
+        if(eVAL==tp27){TP27[TP27.length]=ePHR;}if(eVAL==tp28){TP28[TP28.length]=ePHR;}if(eVAL==tp29){TP29[TP29.length]=ePHR;}
+        if(eVAL==tp30){TP30[TP30.length]=ePHR;}if(eVAL==tp31){TP31[TP31.length]=ePHR;}if(eVAL==tp32){TP32[TP32.length]=ePHR;}
+        if(eVAL==tp33){TP33[TP33.length]=ePHR;}if(eVAL==tp34){TP34[TP34.length]=ePHR;}if(eVAL==tp35){TP35[TP35.length]=ePHR;}
+        if(eVAL==tp36){TP36[TP36.length]=ePHR;}if(eVAL==tp37){TP37[TP37.length]=ePHR;}if(eVAL==tp38){TP38[TP38.length]=ePHR;}
+        if(eVAL==tp39){TP39[TP39.length]=ePHR;}if(eVAL==tp40){TP40[TP40.length]=ePHR;}if(eVAL==tp41){TP41[TP41.length]=ePHR;}
+        if(eVAL==tp42){TP42[TP42.length]=ePHR;}if(eVAL==tp43){TP43[TP43.length]=ePHR;}if(eVAL==tp44){TP44[TP44.length]=ePHR;}
+        if(eVAL==tp45){TP45[TP45.length]=ePHR;}if(eVAL==tp46){TP46[TP46.length]=ePHR;}if(eVAL==tp47){TP47[TP47.length]=ePHR;}
+        if(eVAL==tp48){TP48[TP48.length]=ePHR;}if(eVAL==tp49){TP49[TP49.length]=ePHR;}if(eVAL==tp50){TP50[TP50.length]=ePHR;}
+        if(eVAL==tp51){TP51[TP51.length]=ePHR;}if(eVAL==tp52){TP52[TP52.length]=ePHR;}
+      }
+      else if(type=="DRNK"){//27 DRINKS
+        DRNKPHR[DRNKPHR.length]=ePHR;
+        if(eVAL==dr00){DR00[DR00.length]=ePHR;}if(eVAL==dr01){DR01[DR01.length]=ePHR;}if(eVAL==dr02){DR02[DR02.length]=ePHR;}
+        if(eVAL==dr03){DR03[DR03.length]=ePHR;}if(eVAL==dr04){DR04[DR04.length]=ePHR;}if(eVAL==dr05){DR05[DR05.length]=ePHR;}
+        if(eVAL==dr06){DR06[DR06.length]=ePHR;}if(eVAL==dr07){DR07[DR07.length]=ePHR;}if(eVAL==dr08){DR08[DR08.length]=ePHR;}
+        if(eVAL==dr09){DR09[DR09.length]=ePHR;}if(eVAL==dr10){DR10[DR10.length]=ePHR;}if(eVAL==dr11){DR11[DR11.length]=ePHR;}
+        if(eVAL==dr12){DR12[DR12.length]=ePHR;}if(eVAL==dr13){DR13[DR13.length]=ePHR;}if(eVAL==dr14){DR14[DR14.length]=ePHR;}
+        if(eVAL==dr15){DR15[DR15.length]=ePHR;}if(eVAL==dr16){DR16[DR16.length]=ePHR;}if(eVAL==dr17){DR17[DR17.length]=ePHR;}
+        if(eVAL==dr18){DR18[DR18.length]=ePHR;}if(eVAL==dr19){DR19[DR19.length]=ePHR;}if(eVAL==dr20){DR20[DR20.length]=ePHR;}
+        if(eVAL==dr21){DR21[DR21.length]=ePHR;}if(eVAL==dr22){DR22[DR22.length]=ePHR;}if(eVAL==dr23){DR23[DR23.length]=ePHR;}
+        if(eVAL==dr24){DR24[DR24.length]=ePHR;}if(eVAL==dr25){DR25[DR25.length]=ePHR;}if(eVAL==dr26){DR26[DR26.length]=ePHR;}
+      }
+      else if(type=="SIDE"){//16 SIDES
+        SIDEPHR[SIDEPHR.length]=ePHR;
+        if(eVAL==sd00){SD00[SD00.length]=ePHR;}if(eVAL==sd01){SD01[SD01.length]=ePHR;}if(eVAL==sd02){SD02[SD02.length]=ePHR;}
+        if(eVAL==sd03){SD03[SD03.length]=ePHR;}if(eVAL==sd04){SD04[SD04.length]=ePHR;}if(eVAL==sd05){SD05[SD05.length]=ePHR;}
+        if(eVAL==sd06){SD06[SD06.length]=ePHR;}if(eVAL==sd07){SD07[SD07.length]=ePHR;}if(eVAL==sd08){SD08[SD08.length]=ePHR;}
+        if(eVAL==sd09){SD09[SD09.length]=ePHR;}if(eVAL==sd10){SD10[SD10.length]=ePHR;}if(eVAL==sd11){SD11[SD11.length]=ePHR;}
+        if(eVAL==sd12){SD12[SD12.length]=ePHR;}if(eVAL==sd13){SD13[SD13.length]=ePHR;}if(eVAL==sd14){SD14[SD14.length]=ePHR;}
+        if(eVAL==sd15){SD15[SD15.length]=ePHR;}
+      }
+      else if(type=="TORT"){//4 TORTILLAS
+        TORTPHR[TORTPHR.length]=ePHR;
+        if(eVAL==to00){TO00[TO00.length]=ePHR;}if(eVAL==to01){TO01[TO01.length]=ePHR;}if(eVAL==to02){TO02[TO02.length]=ePHR;}
+        if(eVAL==to03){TO03[TO03.length]=ePHR;}
+      }
+      //PDBG("ENTITY PHRASE",ePHR);
+    }
+    PMTC(tMTC[0],type);
+  }
+  return tMTC;
+}
+// Helper function to associate context data and set as bot vars is/as needed.
+function PMTC(name,type){
+  var tObj,tNme,tPrc,iURL;
+       if(type=="MEAL"){tObj=MEALMAP[name];tNme=tObj.name;tPrc=tObj.price;iURL=tObj.url;SBV2("mealName",tNme);}
+  else if(type=="FILL"){tObj=FILLMAP[name];tNme=tObj.name;tPrc=tObj.price;iURL=tObj.url;SBV2("fillName",tNme);}
+  else if(type=="TOPP"){tObj=TOPPMAP[name];tNme=tObj.name;tPrc=tObj.price;iURL=tObj.url;SBV2("toppName",tNme);}
+  else if(type=="DRNK"){tObj=DRNKMAP[name];tNme=tObj.name;tPrc=tObj.price;iURL=tObj.url;SBV2("drnkName",tNme);}
+  else if(type=="SIDE"){tObj=SIDEMAP[name];tNme=tObj.name;tPrc=tObj.price;iURL=tObj.url;SBV2("sideName",tNme);}
+  else if(type=="TORT"){tObj=TORTMAP[name];tNme=tObj.name;tPrc=tObj.price;iURL=tObj.url;SBV2("tortName",tNme);}
+  SBV2("itemURL",iURL);
+  //PDBG(type+" NAME",name);PDBG(type+" MATCH",tNme);PDBG(type+" PRICE",tPrc);
+  //PDBG(type+" JSON",JSON.stringify(tObj));PDBG(type+" URL",iURL);
+  //SMSG("<img src='"+iURL+"'>");
+}
+// Check overlap main driver for items that may overlap between categories.
+function COVL(){
+  //PDBG("MEALS",MEALMTC);PDBG("FILLINGS",FILLMTC);PDBG("TOPPINGS",TOPPMTC);
+  //PDBG("DRINKS",DRNKMTC);PDBG("SIDES",SIDEMTC);PDBG("TORTILLA",TORTMTC);PDBG("ORIG INTENT",ntnt);
+  if(MEALPHR.length){if(MEALMTC.length){CHKM();}}
+  if(TORTPHR.length){if(TORTMTC.length){CHKA();}}
+  if(FILLPHR.length){if(FILLMTC.length){CHKF();FILO();}}
+  if(TOPPPHR.length){if(TOPPMTC.length){CHKT();TOPO();}}
+  if(DRNKPHR.length){if(DRNKMTC.length){CHKD();CKOV(1);}}
+  if(SIDEPHR.length){if(SIDEMTC.length){CHKS();CKOV(2);}}
+}
+// Check for specific meal overlaps and/or validation checks
+function CHKM(){
+  for(i=0;i<8;i++){
+    if(MEALMTC[i]!==undefined){
+      if(ML01.length&&MEALMTC[i]==ml01){RMVI(ml00,MEALMTC);}//Burrito Bowl
+      if(ML03.length&&MEALMTC[i]==ml03){RMVI(ml04,MEALMTC);}//1 Taco
+      if(ML07.length&&MEALMTC[i]==ml07){RMVI(ml05,MEALMTC);}//Kids Quesadilla
+    }
+  }
+}
+// Check for specific filling overlaps and/or validation checks
+function CHKF(){
+  for(i=0;i<19;i++){
+    if(FILLMTC[i]!==undefined){
+      if(FL00.length&&FILLMTC[i]==fl00){VALI(1);}//Barbacoa
+      if(FL01.length&&FILLMTC[i]==fl01){VALI(1);}//Carnitas
+      if(FL02.length&&FILLMTC[i]==fl02){VALI(1);}//Chicken
+      if(FL03.length&&FILLMTC[i]==fl03){VALI(1);}//Sofritas
+      if(FL04.length&&FILLMTC[i]==fl04){VALI(1);}//Steak
+      if(FL05.length&&FILLMTC[i]==fl05){VALI(1);}//Carne Asada
+      if(FL06.length&&FILLMTC[i]==fl06){VALI(8);VALI(9);}//Veggie
+      if(FL07.length&&FILLMTC[i]==fl07){RMVI(fl00,FILLMTC);VALI(2);VALI(8);VALI(9);}//Half Barbacoa
+      if(FL08.length&&FILLMTC[i]==fl08){RMVI(fl00,FILLMTC);VALI(8);VALI(9);}//Extra Barbacoa
+      if(FL09.length&&FILLMTC[i]==fl09){RMVI(fl01,FILLMTC);VALI(2);VALI(8);VALI(9);}//Half Carnitas
+      if(FL10.length&&FILLMTC[i]==fl10){RMVI(fl01,FILLMTC);VALI(8);VALI(9);}//Extra Carnitas
+      if(FL11.length&&FILLMTC[i]==fl11){RMVI(fl02,FILLMTC);VALI(2);VALI(8);VALI(9);}//Half Chicken
+      if(FL12.length&&FILLMTC[i]==fl12){RMVI(fl02,FILLMTC);VALI(8);VALI(9);}//Extra Chicken
+      if(FL13.length&&FILLMTC[i]==fl13){RMVI(fl03,FILLMTC);VALI(2);VALI(8);VALI(9);}//Half Sofritas
+      if(FL14.length&&FILLMTC[i]==fl14){RMVI(fl03,FILLMTC);VALI(8);VALI(9);}//Extra Sofritas
+      if(FL15.length&&FILLMTC[i]==fl15){RMVI(fl04,FILLMTC);VALI(2);VALI(8);VALI(9);}//Half Steak
+      if(FL16.length&&FILLMTC[i]==fl16){RMVI(fl04,FILLMTC);VALI(8);VALI(9);}//Extra Steak
+      if(FL17.length&&FILLMTC[i]==fl17){RMVI(fl05,FILLMTC);VALI(2);VALI(8);VALI(9);}//Half Carne Asada
+      if(FL18.length&&FILLMTC[i]==fl18){RMVI(fl05,FILLMTC);VALI(8);VALI(9);}//Extra Carne Asada
+    }
+  }
+}
+// Check for specific topping overlaps and/or validation checks
+function CHKT(){
+  for(i=0;i<53;i++){
+    if(TOPPMTC[i]!==undefined){
+      if(TP00.length&&TOPPMTC[i]==tp00){VALI(1);}//Guacamole
+      if(TP01.length&&TOPPMTC[i]==tp01){VALI(3);VALI(9);}//Sour Cream
+      if(TP02.length&&TOPPMTC[i]==tp02){RMVI(tp01,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Light Sour Cream
+      if(TP03.length&&TOPPMTC[i]==tp03){RMVI(tp01,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Extra Sour Cream
+      if(TP04.length&&TOPPMTC[i]==tp04){RMVI(tp01,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Side Sour Cream
+      if(TP05.length&&TOPPMTC[i]==tp05){VALI(1);VALI(9);}//Queso
+      if(TP06.length&&TOPPMTC[i]==tp06){RMVI(tp05,TOPPMTC);VALI(1);VALI(9);}//Queso Blanco
+      if(TP07.length&&TOPPMTC[i]==tp07){VALI(8);VALI(9);}//Chipotle-Honey Vinaigrette
+      if(TP08.length&&TOPPMTC[i]==tp08){VALI(3);VALI(9);}//Fresh Tomato Salsa
+      if(TP09.length&&TOPPMTC[i]==tp09){RMVI(tp08,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Light Fresh Tomato Salsa
+      if(TP10.length&&TOPPMTC[i]==tp10){RMVI(tp08,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Extra Fresh Tomato Salsa
+      if(TP11.length&&TOPPMTC[i]==tp11){RMVI(tp08,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Side Fresh Tomato Salsa
+      if(TP12.length&&TOPPMTC[i]==tp12){VALI(3);VALI(9);}//Roasted Chili-Corn Salsa
+      if(TP13.length&&TOPPMTC[i]==tp13){RMVI(tp12,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Light Roasted Chili-Corn Salsa
+      if(TP14.length&&TOPPMTC[i]==tp14){RMVI(tp12,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Extra Roasted Chili-Corn Salsa
+      if(TP15.length&&TOPPMTC[i]==tp15){RMVI(tp12,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Side Roasted Chili-Corn Salsa
+      if(TP16.length&&TOPPMTC[i]==tp16){VALI(3);VALI(9);}//Tomatillo-Green Chili Salsa
+      if(TP17.length&&TOPPMTC[i]==tp17){RMVI(tp16,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Light Tomatillo-Green Chili Salsa
+      if(TP18.length&&TOPPMTC[i]==tp18){RMVI(tp16,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Extra Tomatillo-Green Chili Salsa
+      if(TP19.length&&TOPPMTC[i]==tp19){RMVI(tp16,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Side Tomatillo-Green Chili Salsa
+      if(TP20.length&&TOPPMTC[i]==tp20){VALI(3);VALI(9);}//Tomatillo-Red Chili Salsa
+      if(TP21.length&&TOPPMTC[i]==tp21){RMVI(tp20,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Light Tomatillo-Red Chili Salsa
+      if(TP22.length&&TOPPMTC[i]==tp22){RMVI(tp20,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Extra Tomatillo-Red Chili Salsa
+      if(TP23.length&&TOPPMTC[i]==tp23){RMVI(tp20,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Side Tomatillo-Red Chili Salsa
+      if(TP24.length&&TOPPMTC[i]==tp24){VALI(3);}//Cheese
+      if(TP25.length&&TOPPMTC[i]==tp25){RMVI(tp24,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Light Cheese
+      if(TP26.length&&TOPPMTC[i]==tp26){RMVI(tp24,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Extra Cheese
+      if(TP27.length&&TOPPMTC[i]==tp27){VALI(3);VALI(9);}//Fajita Veggies
+      if(TP28.length&&TOPPMTC[i]==tp28){RMVI(tp27,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Light Fajita Veggies
+      if(TP29.length&&TOPPMTC[i]==tp29){RMVI(tp27,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Extra Fajita Veggies
+      if(TP30.length&&TOPPMTC[i]==tp30){VALI(3);VALI(9);}//Romaine Lettuce
+      if(TP31.length&&TOPPMTC[i]==tp31){RMVI(tp30,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Light Romaine Lettuce
+      if(TP32.length&&TOPPMTC[i]==tp32){RMVI(tp30,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Extra Romaine Lettuce
+      if(TP33.length&&TOPPMTC[i]==tp33){VALI(3);}//White Rice
+      if(TP34.length&&TOPPMTC[i]==tp34){RMVI(tp33,TOPPMTC);VALI(8);}//Half White Rice
+      if(TP35.length&&TOPPMTC[i]==tp35){RMVI(tp33,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Light White Rice
+      if(TP36.length&&TOPPMTC[i]==tp36){RMVI(tp33,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Extra White Rice
+      if(TP37.length&&TOPPMTC[i]==tp37){RMVI(tp33,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Side White Rice
+      if(TP38.length&&TOPPMTC[i]==tp38){VALI(3);}//Brown Rice
+      if(TP39.length&&TOPPMTC[i]==tp39){RMVI(tp38,TOPPMTC);VALI(8);VALI(9);}//Half Brown Rice
+      if(TP40.length&&TOPPMTC[i]==tp40){RMVI(tp38,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Light Brown Rice
+      if(TP41.length&&TOPPMTC[i]==tp41){RMVI(tp38,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Extra Brown Rice
+      if(TP42.length&&TOPPMTC[i]==tp42){RMVI(tp38,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Side Brown Rice
+      if(TP43.length&&TOPPMTC[i]==tp43){VALI(3);}//Black Beans
+      if(TP44.length&&TOPPMTC[i]==tp44){RMVI(tp43,TOPPMTC);VALI(8);VALI(9);}//Half Black Beans
+      if(TP45.length&&TOPPMTC[i]==tp45){RMVI(tp43,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Light Black Beans
+      if(TP46.length&&TOPPMTC[i]==tp46){RMVI(tp43,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Extra Black Beans
+      if(TP47.length&&TOPPMTC[i]==tp47){RMVI(tp43,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Side Black Beans
+      if(TP48.length&&TOPPMTC[i]==tp48){VALI(3);}//Pinto Beans
+      if(TP49.length&&TOPPMTC[i]==tp49){RMVI(tp48,TOPPMTC);VALI(8);VALI(9);}//Half Pinto Beans
+      if(TP50.length&&TOPPMTC[i]==tp50){RMVI(tp48,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Light Pinto Beans
+      if(TP51.length&&TOPPMTC[i]==tp51){RMVI(tp48,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Extra Pinto Beans
+      if(TP52.length&&TOPPMTC[i]==tp52){RMVI(tp48,TOPPMTC);VALI(4);VALI(8);VALI(9);}//Side Pinto Beans
+    }
+  }
+}
+// Check for specific drink overlaps and/or validation checks
+function CHKD(){
+  for(i=0;i<27;i++){
+    if(DRNKMTC[i]!==undefined){
+      if(DR00.length&&DRNKMTC[i]==dr00){VALI(10);}//Bottled Water
+      if(DR01.length&&DRNKMTC[i]==dr01){CHKO(DR00.length,DR01[DR01.length-1]);VALI(10);}//Smart Water
+      if(DR02.length&&DRNKMTC[i]==dr02){CHKO(DR00.length,DR02[DR02.length-1]);VALI(10);}//San Pellegrino Sparkling Water
+      if(DR03.length&&DRNKMTC[i]==dr03){VALI(10);}//Peach Orange Juice
+      if(DR04.length&&DRNKMTC[i]==dr04){VALI(10);}//Pineapple Orange Banana Juice
+      if(DR05.length&&DRNKMTC[i]==dr05){VALI(10);}//San Pellegrino Blood Orange
+      if(DR06.length&&DRNKMTC[i]==dr06){VALI(10);}//Grapefruit Izze
+      if(DR07.length&&DRNKMTC[i]==dr07){CHKO(DR06.length,DR07[DR07.length-1]);VALI(10);}//Spindrift Grapefruit
+      if(DR08.length&&DRNKMTC[i]==dr08){VALI(10);}//22 fl oz Soda/Iced Tea
+      if(DR09.length&&DRNKMTC[i]==dr09){CHKO(DR08.length,DR09[DR09.length-1]);VALI(10);}//32 fl oz Soda/Iced Tea
+      if(DR10.length&&DRNKMTC[i]==dr10){VALI(10);}//Lipton Pure Leaf Tea - Sweet Tea
+      if(DR11.length&&DRNKMTC[i]==dr11){CHKO(DR10.length,DR11[DR11.length-1]);VALI(10);}//Moonshine Sweet Tea Mint Honey
+      if(DR12.length&&DRNKMTC[i]==dr12){CHKO(DR10.length,DR12[DR12.length-1]);VALI(10);}//Moonshine Sweet Tea Original
+      if(DR13.length&&DRNKMTC[i]==dr13){VALI(10);}//Honest Tea Honey Green
+      if(DR14.length&&DRNKMTC[i]==dr14){VALI(10);}//Lipton Pure Leaf Tea - Unsweetened
+      if(DR15.length&&DRNKMTC[i]==dr15){VALI(10);}//Honest Half Tea Half Lemonade
+      if(DR16.length&&DRNKMTC[i]==dr16){CHKO(DR15.length,DR16[DR16.length-1]);VALI(10);}//Hubert's Strawberry Lemonade
+      if(DR17.length&&DRNKMTC[i]==dr17){CHKO(DR14.length,DR17[DR17.length-1]);VALI(10);}//Starbucks® Cold Brew - Black Unsweetened
+      if(DR18.length&&DRNKMTC[i]==dr18){VALI(10);}//Mexican Coca-Cola
+      if(DR19.length&&DRNKMTC[i]==dr19){VALI(10);}//Pressed Apple Juice
+      if(DR20.length&&DRNKMTC[i]==dr20){VALI(10);}//Pomegranate Cherry Juice
+      if(DR21.length&&DRNKMTC[i]==dr21){VALI(10);}//Blackberry Izze
+      if(DR22.length&&DRNKMTC[i]==dr22){VALI(10);}//Clementine Izze
+      if(DR23.length&&DRNKMTC[i]==dr23){VALI(6);}//Organic Milk
+      if(DR24.length&&DRNKMTC[i]==dr24){VALI(6);}//Organic Chocolate Milk
+      if(DR25.length&&DRNKMTC[i]==dr25){VALI(6);}//Organic Apple Juice
+      if(DR26.length&&DRNKMTC[i]==dr26){VALI(6);}//16 fl oz Soda/Iced Tea
+    }
+  }
+}
+// Check for specific side overlaps and/or validation checks
+function CHKS(){
+  for(i=0;i<16;i++){
+    if(SIDEMTC[i]!==undefined){
+      if(SD00.length&&SIDEMTC[i]==sd00){VALI(11);}//Chips
+      if(SD01.length&&SIDEMTC[i]==sd01){CHKO(SD00.length,SD01[SD01.length-1]);VALI(11);}//Chips & Guacamole
+      if(SD02.length&&SIDEMTC[i]==sd02){CHKO(SD00.length,SD02[SD02.length-1]);CHKO(SD01.length,SD02[SD02.length-1]);CHKO(TP00.length,SD02[SD02.length-1]);VALI(11);}//Large Chips & Large Guacamole
+      if(SD03.length&&SIDEMTC[i]==sd03){CHKO(TP00.length,SD03[SD03.length-1]);VALI(11);}//Side Guacamole
+      if(SD04.length&&SIDEMTC[i]==sd04){CHKO(SD00.length,SD04[SD04.length-1]);CHKO(TP05.length,SD04[SD04.length-1]);VALI(11);}//Chips & Queso
+      if(SD05.length&&SIDEMTC[i]==sd05){CHKO(SD00.length,SD05[SD05.length-1]);CHKO(SD04.length,SD05[SD05.length-1]);CHKO(TP05.length,SD05[SD05.length-1]);CHKO(TP06.length,SD05[SD05.length-1]);VALI(11);}//Chips & Queso Blanco
+      if(SD06.length&&SIDEMTC[i]==sd06){CHKO(SD00.length,SD06[SD06.length-1]);CHKO(TP05.length,SD06[SD06.length-1]);VALI(11);}//Large Chips & Large Queso
+      if(SD07.length&&SIDEMTC[i]==sd07){CHKO(SD00.length,SD07[SD07.length-1]);CHKO(SD06.length,SD07[SD07.length-1]);CHKO(TP05.length,SD07[SD07.length-1]);CHKO(TP06.length,SD07[SD07.length-1]);VALI(11);}//Large Chips & Large Queso Blanco
+      if(SD08.length&&SIDEMTC[i]==sd08){CHKO(TP05.length,SD08[SD08.length-1]);VALI(11);}//Side of Queso
+      if(SD09.length&&SIDEMTC[i]==sd09){CHKO(SD08.length,SD09[SD09.length-1]);CHKO(TP05.length,SD09[SD09.length-1]);CHKO(TP06.length,SD09[SD09.length-1]);VALI(11);}//Side of Queso Blanco
+      if(SD10.length&&SIDEMTC[i]==sd10){CHKO(SD00.length,SD10[SD10.length-1]);CHKO(TP08.length,SD10[SD10.length-1]);VALI(11);}//Chips & Fresh Tomato Salsa
+      if(SD11.length&&SIDEMTC[i]==sd11){CHKO(SD00.length,SD11[SD11.length-1]);CHKO(TP12.length,SD11[SD11.length-1]);VALI(11);}//Chips & Roasted Chili-Corn Salsa
+      if(SD12.length&&SIDEMTC[i]==sd12){CHKO(SD00.length,SD12[SD12.length-1]);CHKO(TP16.length,SD12[SD12.length-1]);VALI(11);}//Chips & Tomatillo-Green Chili Salsa
+      if(SD13.length&&SIDEMTC[i]==sd13){CHKO(SD00.length,SD13[SD13.length-1]);CHKO(TP20.length,SD13[SD13.length-1]);VALI(11);}//Chips & Tomatillo-Red Chili Salsa
+      if(SD14.length&&SIDEMTC[i]==sd14){CHKO(SD00.length,SD14[SD14.length-1]);VALI(7);xksi--;}//Kid's Chips
+      if(SD15.length&&SIDEMTC[i]==sd15){VALI(7);}//Kid's Fruit
+    }
+  }
+}
+// Check for specific tortilla overlaps and/or validation checks
+function CHKA(){
+  for(i=0;i<4;i++){
+    if(TORTMTC[i]!==undefined){
+      if(TO00.length&&TORTMTC[i]==to00){VALI(5);VALI(12);VALI(13);VALI(14);}//Corn Tortilla
+      if(TO01.length&&TORTMTC[i]==to01){VALI(5);VALI(14);}//Flour Tortilla
+      if(TO02.length&&TORTMTC[i]==to02){VALI(4);VALI(12);VALI(14);}//Double Wrap with Tortilla
+      if(TO03.length&&TORTMTC[i]==to03){VALI(4);VALI(12);VALI(13);}//Tortilla on the Side
+    }
+  }
+}
+// Remove any fillings that overlap
+function FILO(){
+  if(FL07.length||FL09.length||FL11.length||FL13.length||FL15.length||FL17.length){
+    RMVI(fl08,FILLMTC);RMVI(fl10,FILLMTC);RMVI(fl12,FILLMTC);RMVI(fl14,FILLMTC);RMVI(fl16,FILLMTC);RMVI(fl18,FILLMTC);
+  }
+}
+// Remove any toppings that overlap
+function TOPO(){
+  if(TP34.length&&TP39.length){VALI(4);}if(TP44.length&&TP49.length){VALI(4);}
+  if(TP33.length&&TP38.length){VALI(9);}if(TP43.length&&TP48.length){VALI(9);}
+}
+// Helper function to remove the item from the array
+function RMVI(valu,arra){for(var i=0;i<arra.length;i++){if(arra[i]===valu){arra.splice(i,1);}}}
+// Helper function to check and remove the overlap from the intent
+function CHKO(leng,valu){if(leng){if(newi.match(valu)){newi=newi.replace(valu,"");}}}
+// Helper function to check new intent and remove any other overlap
+function RMOV(valu,type){var temp=newi;if(temp.match(valu)){}else{type.splice(0,1);}}
+// Check for specific overlaps based on menu items and remove them
+function CKOV(valu){
+  if(valu==1){
+    RMOV(DR01[DR01.length-1],DRNKMTC);//Smart Water
+    RMOV(DR02[DR02.length-1],DRNKMTC);//San Pellegrino Sparkling Water
+    RMOV(DR07[DR07.length-1],DRNKMTC);//Spindrift Grapefruit
+    RMOV(DR09[DR09.length-1],DRNKMTC);//32 fl oz Soda/Iced Tea
+    RMOV(DR11[DR11.length-1],DRNKMTC);//Moonshine Sweet Tea Mint Honey
+    RMOV(DR12[DR12.length-1],DRNKMTC);//Moonshine Sweet Tea Original
+    RMOV(DR16[DR16.length-1],DRNKMTC);//Hubert's Strawberry Lemonade
+    RMOV(DR17[DR17.length-1],DRNKMTC);//Starbucks® Cold Brew - Black Unsweetened
+  }
+  else if(valu==2){
+    RMOV(TP00[TP00.length-1],TOPPMTC);//Guacamole
+    RMOV(TP05[TP05.length-1],TOPPMTC);//Queso
+    RMOV(TP06[TP06.length-1],TOPPMTC);//Queso Blanco
+    RMOV(TP08[TP08.length-1],TOPPMTC);//Fresh Tomato Salsa
+    RMOV(TP12[TP12.length-1],TOPPMTC);//Roasted Chili-Corn Salsa
+    RMOV(TP16[TP16.length-1],TOPPMTC);//Tomatillo-Green Chili Salsa
+    RMOV(TP20[TP20.length-1],TOPPMTC);//Tomatillo-Red Chili Salsa
+    RMOV(SD01[SD01.length-1],SIDEMTC);//Chips & Guacamole
+    RMOV(SD02[SD02.length-1],SIDEMTC);//Large Chips & Large Guacamole
+    RMOV(SD04[SD04.length-1],SIDEMTC);//Chips & Queso
+    RMOV(SD05[SD05.length-1],SIDEMTC);//Chips & Queso Blanco
+    RMOV(SD06[SD06.length-1],SIDEMTC);//Large Chips & Large Queso
+    RMOV(SD07[SD07.length-1],SIDEMTC);//Large Chips & Large Queso Blanco
+    RMOV(SD09[SD09.length-1],SIDEMTC);//Side of Queso Blanco
+    RMOV(SD10[SD10.length-1],SIDEMTC);//Chips & Fresh Tomato Salsa
+    RMOV(SD11[SD11.length-1],SIDEMTC);//Chips & Roasted Chili-Corn Salsa
+    RMOV(SD12[SD12.length-1],SIDEMTC);//Chips & Tomatillo-Green Chili Salsa
+    RMOV(SD13[SD13.length-1],SIDEMTC);//Chips & Tomatillo-Red Chili Salsa
+    RMOV(SD14[SD14.length-1],SIDEMTC);//Kid's Chips
+  }
+}
+function VALI(valu){
+       if(valu==1){vkfi++;} //Valid Kid's Filling
+  else if(valu==2){vhfi++;} //Valid Half Filling
+  else if(valu==3){vkit++;} //Valid Kid's Items
+  else if(valu==4){vcus++;} //Valid Customizations
+  else if(valu==5){vtor++;} //Valid Tortilla
+  else if(valu==6){vkdr++;} //Valid Kid's Drinks
+  else if(valu==7){vksi++;} //Valid Kid's Sides
+  else if(valu==8){xkby++;} //Invalid Kid's BYO Items
+  else if(valu==9){xkqu++;} //Invalid Kid's Quesadilla Items
+  else if(valu==10){xkdr++;}//Invalid Kid's Drinks
+  else if(valu==11){xksi++;}//Invalid Kid's Sides
+  else if(valu==12){xtor++;}//Invalid Tortilla
+  else if(valu==13){xtbu++;}//Invalid Tortilla Burrito
+  else if(valu==14){xtbs++;}//Invalid Tortilla Bowl/Salad
+}
+// Print and validate NLU
+// Per Chipotle business rules, this function checks the validation counters and arrays to determine a valid order.
+// If the NLU that matches passes through all validation, we send it to the user and proceed to place new order.
+function PNLU(){
+  var msg="",msg2="",lnbr=GBV1("lnbr"),tkid=vkfi+vkit;SBV2("dlay",true);
+  if((ML00.length||ML05.length||ML07.length)&&!TORTMTC.length){TORTMTC[0]="Flour Tortilla";}
+  if(ML05.length&&!FILLMTC.length&&!TOPPMTC.length){TOPPMTC[0]="Cheese";}
+  if((ML05.length||ML06.length||ML07.length)&&!FILLMTC.length){FILLMTC[0]="(None)";}
+  if((ML00.length||ML01.length||ML02.length||ML03.length||ML04.length||ML05.length||ML06.length||ML07.length)&&!TOPPMTC.length){TOPPMTC[0]="(None)";}
+  if((ML00.length||ML01.length||ML02.length||ML03.length||ML04.length||ML05.length||ML06.length||ML07.length)&&!DRNKMTC.length){DRNKMTC[0]="(None)";}
+  if((ML00.length||ML01.length||ML02.length||ML03.length||ML04.length||ML05.length||ML06.length||ML07.length)&&!SIDEMTC.length){SIDEMTC[0]="(None)";}
+  if(!MEALMTC.length&&!FILLMTC.length&&!TORTMTC.length&&SIDEMTC.length){TOPPMTC="";}
+       if((ML03.length||ML04.length||ML06.length)&&vtor!==1){msg+="Sorry, please specify flour or corn tortilla.";}
+  else if(ML00.length&&xtbu>0){msg+="Sorry, that tortilla option is not available for a burrito.";}
+  else if((ML05.length||ML07.length)&&xtor>0){msg+="Sorry, please specify flour tortilla only.";}
+  else if((ML01.length||ML02.length)&&xtbs>0){msg+="Sorry, that tortilla option is not available for your meal.";}
+  else if((ML06.length||ML07.length)&&vkfi>1){msg+="Sorry, please specify a max of (1) kid's filling.";}
+  else if((ML06.length||ML07.length)&&tkid>3){msg+="Sorry, please specify a max of (3) kid's items.";}
+  else if(ML06.length&&xkby>0){msg+="Sorry, invalid kid's build your own item entered.";}
+  else if(ML07.length&&xkqu>0){msg+="Sorry, invalid kid's quesadilla item entered.";}
+  else if((ML06.length||ML07.length)&&xkdr>0){msg+="Sorry, invalid kid's drink entered.";}
+  else if((ML06.length||ML07.length)&&xksi>0){msg+="Sorry, invalid kid's side entered.";}
+  else if((!ML06.length&&!ML07.length)&&vkdr>0){msg+="Sorry, kid's drinks are available with kid's meals only.";}
+  else if((!ML06.length&&!ML07.length)&&vksi>0){msg+="Sorry, kid's sides are available with kid's meals only.";}
+  else if(MEALMTC.length>1){msg+="Sorry, please enter (1) meal entree at a time.";}
+  else if((FILLMTC.length||TOPPMTC.length)&&!MEALMTC.length&&!SIDEMTC.length){msg+="Sorry, please enter a meal entree.";}
+  else if((ML00.length||ML01.length||ML02.length||ML03.length||ML04.length)&&!FILLMTC.length){msg+="Sorry, please enter a filling.";}
+  else if(TORTMTC.length>1){msg+="Sorry, please enter a max of (1) tortilla option.";}
+  else if(FL06.length&&FILLMTC.length>1){msg+="Sorry, veggie filling can not be combined.";}
+  else if(FILLMTC.length>2){msg+="Sorry, please enter a max of (2) fillings.";}
+  else if(SIDEMTC.length>1){msg+="Sorry, please enter (1) side item at a time.";}
+  else if(DRNKMTC.length>1){msg+="Sorry, please enter (1) drink item at a time.";}
+  else if(vhfi==1){msg+="Sorry, please specify (2) half fillings.";}
+  else if(vcus>3){msg+="Sorry, please specify a max of (3) customizations.";}
+  else{
+    if(MEALMTC.length){msg+="Meal: "+MEALMTC+lnbr;for(i=0;i<8;i++){if(MEALMTC[i]!==undefined){PDBG("MEAL #"+(i+1),MEALMTC[i]);}}}
+    if(TORTMTC.length){msg+="Tortilla: "+TORTMTC+lnbr;for(i=0;i<4;i++){if(TORTMTC[i]!==undefined){PDBG("TORTILLA #"+(i+1),TORTMTC[i]);}}}
+    if(FILLMTC.length){msg+="Filling(s): "+FILLMTC+lnbr;for(i=0;i<19;i++){if(FILLMTC[i]!==undefined){PDBG("FILLING #"+(i+1),FILLMTC[i]);}}}
+    if(TOPPMTC.length){msg+="Topping(s): "+TOPPMTC+lnbr;for(i=0;i<53;i++){if(TOPPMTC[i]!==undefined){PDBG("TOPPING #"+(i+1),TOPPMTC[i]);}}}
+    if(SIDEMTC.length){msg2+="Side: "+SIDEMTC+lnbr;for(i=0;i<16;i++){if(SIDEMTC[i]!==undefined){PDBG("SIDE #"+(i+1),SIDEMTC[i]);}}}
+    if(DRNKMTC.length){msg2+="Drink: "+DRNKMTC+lnbr;for(i=0;i<27;i++){if(DRNKMTC[i]!==undefined){PDBG("DRINK #"+(i+1),DRNKMTC[i]);}}}
+  }
+  if(msg==""&&msg2==""){STNM("WELCOME_error");}//msg+="Sorry, did not understand your request, please try again.";}
+  else{SMSG(msg);SDLY(500);SMSG(msg2);STNM("NEW_ORDER");}
+}
